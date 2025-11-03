@@ -1,1 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Litematica → Bedrock Converter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🧩 Litematica → Bedrock Converter</h1>
+    <p>Upload a <b>.litematic</b> file and download a <b>.mcstructure</b> for Minecraft Bedrock.</p>
+    <input type="file" id="fileInput" accept=".litematic">
+    <button id="convertBtn">Convert</button>
+    <p id="status"></p>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nbt-js@1.7.0/dist/nbt.min.js"></script>
+
+  <!-- Converter Script -->
+  <script src="script.js"></script>
+</body>
+</html>
 
