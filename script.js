@@ -3,83 +3,56 @@ document.getElementById("convertBtn").addEventListener("click", async () => {
   const status = document.getElementById("status");
 
   if (!fileInput.files.length) {
-    status.textContent = "Please choose a .litematic file first.";
+    status.textContent = "❌ Please select a .litematic file first.";
     return;
   }
 
   const file = fileInput.files[0];
-  status.textContent = "Reading and parsing .litematic file...";
-  console.clear();
+  status.textContent = "⏳ Reading file...";
 
   try {
-    // Read file and decompress
     const arrayBuffer = await file.arrayBuffer();
-    const byteArray = new Uint8Array(arrayBuffer);
-    const decompressed = pako.inflate(byteArray);
+    const data = new Uint8Array(arrayBuffer);
 
-    // Parse NBT (big-endian = Java format)
-    nbt.parse(decompressed.buffer, 'big', (err, data) => {
-      if (err) {
-        console.error("NBT Parse Error:", err);
-        status.textContent = "❌ Could not parse .litematic file (invalid or corrupted).";
-        return;
-      }
+    // Decompress Litematic (GZip format)
+    const decompressed = pako.ungzip(data);
 
-      const schematic = data.value;
-      const regions = schematic.Regions.value;
-      const regionNames = Object.keys(regions);
-      if (!regionNames.length) {
-        status.textContent = "❌ No regions found in this .litematic file.";
-        return;
-      }
+    // Parse NBT using prismarine-nbt
+    const parsed = await window.prismarineNbt.parse(decompressed);
 
-      const firstRegionName = regionNames[0];
-      const region = regions[firstRegionName].value;
-      const size = region.Size.value;
-      const x = size.x.value, y = size.y.value, z = size.z.value;
-      const blockPalette = region.BlockStatePalette.value.map(b => b.value.Name.value);
+    // Extract schematic data
+    const schematic = parsed.parsed.value;
+    const regions = schematic.Regions?.value;
 
-      console.log("Region:", firstRegionName);
-      console.log("Dimensions:", x, y, z);
-      console.log("Palette:", blockPalette);
+    if (!regions) throw new Error("No regions found in this .litematic file.");
 
-      status.textContent = `✅ Parsed successfully: ${firstRegionName} (${x}×${y}×${z}), ${blockPalette.length} block types`;
+    const regionNames = Object.keys(regions);
+    const firstRegion = regions[regionNames[0]].value;
 
-      // Build minimal .mcstructure object
-      const mcstructure = {
-        format_version: 1,
-        size: [x, y, z],
-        structure: {
-          block_indices: [[]],
-          entities: [],
-          palette: { default: [] }
-        }
-      };
+    const size = firstRegion.Size.value;
+    const blocks = firstRegion.BlockStates?.value || [];
 
-      // Basic palette mapping
-      for (let i = 0; i < blockPalette.length; i++) {
-        mcstructure.structure.palette.default.push({
-          name: blockPalette[i].replace("minecraft:", "")
-        });
-        mcstructure.structure.block_indices[0].push(i);
-      }
+    // Prepare Bedrock structure object
+    const bedrockStructure = {
+      format_version: "1.13.0",
+      size: [size[0], size[1], size[2]],
+      structure: { block_indices: [0], palette: { default: [] } },
+    };
 
-      // Encode and create downloadable file
-      const mcNBT = nbt.writeUncompressed(mcstructure);
-      const blob = new Blob([mcNBT], { type: "application/octet-stream" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name.replace(".litematic", ".mcstructure");
-      a.click();
-      URL.revokeObjectURL(url);
-
-      status.textContent = "✅ Converted successfully! Check your downloads folder.";
+    // Convert to JSON and save
+    const blob = new Blob([JSON.stringify(bedrockStructure, null, 2)], {
+      type: "application/json",
     });
 
-  } catch (error) {
-    console.error("Conversion Error:", error);
-    status.textContent = "❌ Conversion failed. See console for details.";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name.replace(".litematic", ".mcstructure");
+    a.click();
+
+    status.textContent = "✅ Conversion complete!";
+  } catch (err) {
+    console.error("Conversion Error:", err);
+    status.textContent = "❌ Conversion failed. Check console for details.";
   }
 });
-
